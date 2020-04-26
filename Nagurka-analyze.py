@@ -53,6 +53,14 @@ for (root, dirs, files) in os.walk(orig, topdown=True):
            if "new TrustManager" in line:
               list_of_results.append((line_number, line.rstrip()))
            line_number += 1
+	   
+	   #a further check on overriding Trust Manager
+	   if "sslContext.init(" in line and "new TrustManager[]" in line:
+              list_of_results.append((line_number, line.rstrip()))
+           line_number += 1
+	   	   
+
+
       if list_of_results != []:
 	  out.write(fName + "\n")
 	  out.write(str(list_of_results))
