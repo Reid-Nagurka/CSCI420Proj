@@ -23,6 +23,7 @@ def addSlashSpace(folderWithSpaces):
 def get_all_file_paths(root_folder_path):
     """Given the root folder, this will go through all folders within this folder and return a list of files i guess"""
     files_and_directory_list = os.listdir(root_folder_path)
+
     only_files = []
     for i in files_and_directory_list:
         if(os.path.isdir(root_folder_path+"/"+i)):
@@ -40,12 +41,53 @@ def get_suspects(list_of_all_files):
     return suspects
 
 
+def get_requested_persmissions(root):
+    permission_list = []
+    for i in root:
+        if(i.tag == "uses-permission"):
+            perm = i.attrib["{http://schemas.android.com/apk/res/android}name"]
+            permission_list.append(perm)
+    return permission_list
+
+
 def internet_checker(root):
     """ returns true if the internet is required. """
     for i in root:
         if(i.tag == "uses-permission" and i.attrib["{http://schemas.android.com/apk/res/android}name"] == "android.permission.INTERNET"):
             return True
     return False
+
+
+def overstated_permissions(file_path, remaining_permissions):
+    file = open(file_path)
+
+    for i in file.readlines():
+        if(i.find("android.permission") > -1):
+            print("Finding something...")
+            starting_point = i.find("android.permission.")
+
+            sub = i[starting_point:]
+
+            space_index = sub.find(" ")
+            quote_index = sub.find('\"')
+
+            used_permission = ""
+
+            if(space_index > -1 and quote_index > -1):
+                chosen_position = min(space_index, quote_index)
+                used_permission = sub[:chosen_position]
+                print(used_permission)
+            elif(quote_index > -1):
+                used_permission = sub[:quote_index]
+                print(used_permission)
+            else:
+                used_permission = sub[:space_index]
+                print(used_permission)
+
+            if(str(used_permission) is not "" and str(used_permission) in remaining_permissions):
+                remaining_permissions.remove(used_permission)
+
+    return remaining_permissions
 
 
 def http_usage(file_path, output_file):
@@ -247,12 +289,16 @@ root = tree.getroot()
 package_name = root.attrib['package']
 # check if the app uses internet. if it doesn't, then don't continue
 requires_internet = internet_checker(root)
-
+remaining_permissions = get_requested_persmissions(root)
+print(remaining_permissions)
+print(len(remaining_permissions))
 
 # replace periods with slashes for easy file parsing. move to the smali file area
-package_name_slashes = folderName+"/smali/" + package_name.replace(".", "/")
+# package_name_slashes = folderName+"/smali/" + package_name.replace(".", "/")
+package_name_slashes = folderName+"/smali"
 list_of_files = get_all_file_paths(package_name_slashes)
 files_to_investigate = get_suspects(list_of_files)
+
 
 files_with_vulnerabilities = []
 
@@ -264,14 +310,18 @@ output_file.write("This report analyzes " +
 for file_path in files_to_investigate:
     # output_file.write("Analyzing " + file_path+"\n")
 
-    file_error_count = http_usage(
-        file_path, output_file) + trust_manager_usage(file_path, output_file) + ssl_socket_usage(file_path, output_file) + does_trust_all_certs(file_path, output_file) + custom_ssl_validation(file_path, output_file)
-    total_errors = total_errors + file_error_count
+    # file_error_count = http_usage(
+    #     file_path, output_file) + trust_manager_usage(file_path, output_file) + ssl_socket_usage(file_path, output_file) + does_trust_all_certs(file_path, output_file) + custom_ssl_validation(file_path, output_file)
+    # total_errors = total_errors + file_error_count
 
-    if(file_error_count > 0):
-        files_with_vulnerabilities.append(file_path)
+    remaining_permissions = overstated_permissions(
+        file_path, remaining_permissions)
 
+    # if(file_error_count > 0):
+    #     files_with_vulnerabilities.append(file_path)
 
+print(remaining_permissions)
+print(len(remaining_permissions))
 output_file.write("\n")
 # print(files_with_vulnerabilities)
 print("Total errors found: " + str(total_errors))

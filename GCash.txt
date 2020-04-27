@@ -1,0 +1,3 @@
+This report analyzes 7 files.
+
+Total possible errors found 0
