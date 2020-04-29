@@ -86,6 +86,68 @@ def hostname_check(file_path):
     file.close()
     return count
 
+def certificate_check(file_path):
+    cert_flags = ["AcceptAllTrustM",
+                              "AllTrustM",
+                              "DummyTrustM",
+                              "EasyX509TrustM",
+                              "FakeTrustM",
+                              "FakeX509TrustM",
+                              "FullX509TrustM",
+                              "NaiveTrustM",
+                              "NonValidatingTrustM",
+                              "NullTrustM",
+                              "OpenTrustM",
+                              "PermissiveX509TrustM",
+                              "SimpleTrustM",
+                              "SimpleX509TrustM",
+                              "TrivialTrustM",
+                              "TrustAllManager",
+                              "TrustAllTrustM",
+                              "TrustAnyCertTrustM",
+                              "UnsafeX509TrustM",
+                              "VoidTrustM"]
+    file = open(file_path)
+    count = 0
+    check = False
+    for i in file.readlines():
+        if (i.find("sslContext.init(") > -1 and i.find("new TrustManager[]") > -1):
+            count = count + 1
+            check = True
+        if (not check):
+            for x in range(0, len(cert_flags)):
+                if(i.find(cert_flags[x]) > -1):
+                    count = count + 1
+
+        check = False
+    file.close()
+    return count
+
+def run_activity_checker(file_path, file_name_list, result_list):
+    file = open(file_path)
+    for i in file.readlines():
+	if(i.find("startActivity") > -1):
+	   #now need to filter out if the activity is not in the zuum path
+	   starting_point = i.find("startActivity")
+	   sub = i[:starting_point]
+	   left_text = sub.partition(";")[0]
+	   div = left_text.partition("/")[2]
+	   tmp = div
+	   while "" != div:
+	      tmp = div
+	      div = div.partition("/")[2]
+	   
+	   #print("left_text:" + left_text)
+	   #print("temp:")
+	   #print(tmp)
+	   #print(left_text)
+	   #print("i" + i)
+	   #tmp has the single filename
+           #values to discard: Activity (generic), Context, Intent empty
+	   if (tmp not in file_name_list and "$" not in tmp and tmp != 'Activity' and tmp != 'Context' and tmp != '' and tmp != 'Intent'):
+	      result_list.append(tmp)
+    #return result_list
+
 
 def run_individual_analysis(apk_path):
     # prevent bug by only allowing this to happen if it's actually an apk file.
@@ -101,7 +163,9 @@ def run_individual_analysis(apk_path):
         'permissions_not_utilized_count': 0,
         'unutilized_permission_list': [],
         'unused_decimal': 0,
-        'hostname_errors_count': 0
+        'hostname_errors_count': 0,
+	'activity_calls_outside_app': 0,
+        'certificate_violations': 0
     }
 
     # unpack
@@ -129,13 +193,37 @@ def run_individual_analysis(apk_path):
     list_of_files = get_all_file_paths(package_name_slashes)
     files_to_investigate = get_suspects(list_of_files)
 
+    #activity checker
+    #generate list of file names just once, here
+    file_name_list = []
+    for x in files_to_investigate:
+       if(x.find(".smali") > -1 and x.find("$") < 0):
+          starting_point = x.find(".smali")
+          sub = x[:starting_point]
+	  #left_text = sub.partition("/")[0]
+	  div = sub.partition("/")[2]
+	  tmp = div
+	  while "" != div:
+	     tmp = div
+	     div = div.partition("/")[2]
+          file_name_list.append(tmp)
+    #run_activity_checker(files_to_investigate[0], file_name_list)
+    activity_list = []
+    cert_violations = 0
+
     # run through all files
     for file_path in files_to_investigate:
         # update remaining permissions
         remaining_permissions = overstated_permissions(
             file_path, remaining_permissions)
+        
+        #individual_results[activity_calls_outside_app] += run_activity_checker
+#	    (file_path, file_name_list)
+	run_activity_checker(file_path, file_name_list, activity_list)
+	individual_results['activity_calls_outside_app'] = len(activity_list)
+        individual_results['certificate_violations'] += certificate_check(file_path)     
 
-        individual_results['hostname_errors_count'] += hostname_check(
+	individual_results['hostname_errors_count'] += hostname_check(
             file_path)
 
     # update dictionary with post analysis results
@@ -147,8 +235,12 @@ def run_individual_analysis(apk_path):
 
     # last thing to do is update results
     results['total_permissions_not_utilized'] += len(remaining_permissions)
+    results['total_activities_outside_app'] += individual_results['activity_calls_outside_app']
+    results['total_certificate_violations'] += individual_results['certificate_violations']
 
     results[apk_path] = individual_results
+    
+    
 
 
 # RUN WITH bulk_analyze.py -i FOLDERNAME
@@ -174,6 +266,8 @@ results = {
     "average_permissions_requested": 0,
     'total_permissions_not_utilized': 0,
     "average_permissions_not_utilized": 0,
+    'total_activities_outside_app': 0,
+    'total_certificate_violations': 0
 }
 
 for apk in apks_to_analyze:
