@@ -1,3 +1,0 @@
-This report analyzes 6179 files.
-
-Total possible errors found 0
