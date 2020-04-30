@@ -221,7 +221,12 @@ def run_individual_analysis(apk_path):
 #	    (file_path, file_name_list)
 	run_activity_checker(file_path, file_name_list, activity_list)
 	individual_results['activity_calls_outside_app'] = len(activity_list)
-        individual_results['certificate_violations'] += certificate_check(file_path)     
+        if (len(activity_list) > 0):
+            results['total_apps_activities_outside_app'] += 1
+        cert_violations = certificate_check(file_path)
+        if (cert_violations > 0):
+            results['total_apps_cert_violation'] += 1
+        individual_results['certificate_violations'] += cert_violations     
 
 	individual_results['hostname_errors_count'] += hostname_check(
             file_path)
@@ -267,7 +272,9 @@ results = {
     'total_permissions_not_utilized': 0,
     "average_permissions_not_utilized": 0,
     'total_activities_outside_app': 0,
-    'total_certificate_violations': 0
+    'total_apps_activities_outside_app': 0,
+    'total_certificate_violations': 0,
+    'total_apps_cert_violation': 0
 }
 
 for apk in apks_to_analyze:
