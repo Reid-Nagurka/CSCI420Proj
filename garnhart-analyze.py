@@ -63,7 +63,7 @@ def overstated_permissions(file_path, remaining_permissions):
 
     for i in file.readlines():
         if(i.find("android.permission") > -1):
-            print("Finding something...")
+            # print("Finding something...")
             starting_point = i.find("android.permission.")
 
             sub = i[starting_point:]
@@ -76,13 +76,13 @@ def overstated_permissions(file_path, remaining_permissions):
             if(space_index > -1 and quote_index > -1):
                 chosen_position = min(space_index, quote_index)
                 used_permission = sub[:chosen_position]
-                print(used_permission)
+                # print(used_permission)
             elif(quote_index > -1):
                 used_permission = sub[:quote_index]
-                print(used_permission)
+                # print(used_permission)
             else:
                 used_permission = sub[:space_index]
-                print(used_permission)
+                # print(used_permission)
 
             if(str(used_permission) is not "" and str(used_permission) in remaining_permissions):
                 remaining_permissions.remove(used_permission)
@@ -290,8 +290,9 @@ package_name = root.attrib['package']
 # check if the app uses internet. if it doesn't, then don't continue
 requires_internet = internet_checker(root)
 remaining_permissions = get_requested_persmissions(root)
+print("Permissions Requested for "+folderName)
 print(remaining_permissions)
-print(len(remaining_permissions))
+print("Requesting this many permissions "+str(len(remaining_permissions)))
 
 # replace periods with slashes for easy file parsing. move to the smali file area
 # package_name_slashes = folderName+"/smali/" + package_name.replace(".", "/")
@@ -320,8 +321,9 @@ for file_path in files_to_investigate:
     # if(file_error_count > 0):
     #     files_with_vulnerabilities.append(file_path)
 
+print("Permissions not used: ")
 print(remaining_permissions)
-print(len(remaining_permissions))
+print("Amount of permissions not used: "+str(len(remaining_permissions)))
 output_file.write("\n")
 # print(files_with_vulnerabilities)
 print("Total errors found: " + str(total_errors))
