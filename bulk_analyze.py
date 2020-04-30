@@ -123,8 +123,9 @@ def certificate_check(file_path):
     file.close()
     return count
 
-def run_activity_checker(file_path, file_name_list, result_list):
+def run_activity_checker(file_path, file_name_list):
     file = open(file_path)
+    result_list = []
     for i in file.readlines():
 	if(i.find("startActivity") > -1):
 	   #now need to filter out if the activity is not in the zuum path
@@ -146,7 +147,7 @@ def run_activity_checker(file_path, file_name_list, result_list):
            #values to discard: Activity (generic), Context, Intent empty
 	   if (tmp not in file_name_list and "$" not in tmp and tmp != 'Activity' and tmp != 'Context' and tmp != '' and tmp != 'Intent'):
 	      result_list.append(tmp)
-    #return result_list
+    return len(result_list)
 
 
 def run_individual_analysis(apk_path):
@@ -208,7 +209,6 @@ def run_individual_analysis(apk_path):
 	     div = div.partition("/")[2]
           file_name_list.append(tmp)
     #run_activity_checker(files_to_investigate[0], file_name_list)
-    activity_list = []
     cert_violations = 0
 
     # run through all files
@@ -219,13 +219,17 @@ def run_individual_analysis(apk_path):
         
         #individual_results[activity_calls_outside_app] += run_activity_checker
 #	    (file_path, file_name_list)
-	run_activity_checker(file_path, file_name_list, activity_list)
-	individual_results['activity_calls_outside_app'] = len(activity_list)
-        if (len(activity_list) > 0):
+	activity_count = run_activity_checker(file_path, file_name_list)
+	individual_results['activity_calls_outside_app'] = activity_count
+        if (activity_count > 0):
             results['total_apps_activities_outside_app'] += 1
         cert_violations = certificate_check(file_path)
         if (cert_violations > 0):
             results['total_apps_cert_violation'] += 1
+            if (cert_violations > 1):
+                results['apps_more_than_one_cert_violation'] += 1
+
+	
         individual_results['certificate_violations'] += cert_violations     
 
 	individual_results['hostname_errors_count'] += hostname_check(
@@ -274,7 +278,8 @@ results = {
     'total_activities_outside_app': 0,
     'total_apps_activities_outside_app': 0,
     'total_certificate_violations': 0,
-    'total_apps_cert_violation': 0
+    'total_apps_cert_violation': 0,
+    'apps_more_than_one_cert_violation': 0
 }
 
 for apk in apks_to_analyze:
